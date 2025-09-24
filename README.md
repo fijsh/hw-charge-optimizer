@@ -1,6 +1,6 @@
-# Homewizard Battery Optimizer with Zonneplan Integration
+# Homewizard Charge Optimizer with Zonneplan Integration
 
-**Homewizard Battery Optimizer** automates Homewizard battery charging based on Zonneplan's dynamic electricity tariffs.  
+**Homewizard Charge Optimizer** automates Homewizard battery charging based on Zonneplan's dynamic electricity tariffs.  
 It fetches daily tariffs from Zonneplan, analyzes them, and schedules battery charging for the cheapest hours.  
 The goal: maximize savings and efficiency by charging when electricity is cheapest (or negative).  
 Runs autonomously on a Raspberry Pi for always-optimized battery charging.
@@ -77,8 +77,8 @@ Every 5 minutes (configurable) it polls the Homewizard P1 meter for current cons
 
 1. **Clone or copy the repository to your Pi:**
    ```bash
-   git clone https://github.com/fijsh/HomewizardBatteryOptimization.git
-   cd HomewizardBatteryOptimization
+   git clone https://github.com/fijsh/hw-charge-optimizer.git
+   cd HWChargeOptimizer
    ```
 
 2. **Publish the app:**
@@ -183,7 +183,7 @@ Edit the configuration file (`appsettings.json`) in the `publish` directory.
 
 ```json
 {
-  "HomewizardBatteryOptimization": {
+  "HWChargeOptimizer": {
     "Homewizard": {
       "RefreshIntervalMinutes": 5,
       "P1": {
@@ -268,19 +268,19 @@ To run the app in the background and restart on reboot:
 1. **Create a systemd service file (example for `DietPi`):**
 
    ```bash
-   sudo nano /etc/systemd/system/hbo.service
+   sudo nano /etc/systemd/system/hwco.service
    ```
 
    Paste the following (adjust paths as needed):
 
    ```
     [Unit]
-    Description=Homewizard Battery Optimizer for dynamic tariffs
+    Description=Homewizard Charge Optimizer for dynamic tariffs
     After=network.target
     
     [Service]
-    WorkingDirectory=/usr/local/bin/hbo
-    ExecStart=/home/dietpi/.dotnet/dotnet /usr/local/bin/hbo/hbo.dll
+    WorkingDirectory=/usr/local/bin/hwco
+    ExecStart=/home/dietpi/.dotnet/dotnet /usr/local/bin/hwco/hwco.dll
     Restart=on-failure
     User=dietpi
     Environment=DOTNET_ROOT=/home/dietpi/.dotnet
@@ -295,15 +295,15 @@ To run the app in the background and restart on reboot:
 
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable hbo
-   sudo systemctl start hbo
+   sudo systemctl enable hwco
+   sudo systemctl start hwco
    ```
 
 3. **Check status and logs:**
 
    ```bash
-   sudo systemctl status hbo
-   tail -f /usr/local/bin/hbo/logs/app[date].log
+   sudo systemctl status hwco
+   tail -f /usr/local/bin/hwco/logs/app[date].log
    ```
 
 ---
@@ -312,12 +312,12 @@ To run the app in the background and restart on reboot:
 
 1. Stop the service:
    ```bash
-   sudo systemctl stop hbo
+   sudo systemctl stop hwco
    ```
 2. Copy new files or re-publish.
 3. Start the service:
    ```bash
-   sudo systemctl start hbo
+   sudo systemctl start hwco
    ```
 
 ---
@@ -326,7 +326,7 @@ To run the app in the background and restart on reboot:
 
 The application uses Serilog for logging. If you encounter issues:
 
-- **Check logs** with `tail -f /usr/local/bin/hbo/logs/app[date].log` for errors.
+- **Check logs** with `tail -f /usr/local/bin/hwco/logs/app[date].log` for errors.
 - Ensure your configuration file is correct and tokens are valid.
 - Verify network connectivity to Homewizard and Zonneplan endpoints.
 - You must create a local user/token for the P1 meter and each Homewizard battery.
@@ -343,6 +343,8 @@ If you fork the project, it is nice to add a reference to the original repositor
 
 ```markdown
 Licensed under the Creative Commons Attribution-NonCommercial (CC BY-NC) license.
+
+Commercial use is not allowed without prior permission from the author.
 ```
 
 ---
