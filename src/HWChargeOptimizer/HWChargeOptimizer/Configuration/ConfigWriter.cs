@@ -12,7 +12,7 @@ public class ConfigWriter
         var jsonText = await File.ReadAllTextAsync(AppSettingsFilePath);
         var root = JObject.Parse(jsonText);
 
-        root["ZonneplanHomewizard"] = JObject.FromObject(hwChargeOptimizerConfig);
+        root["HWChargeOptimizer"] = JObject.FromObject(hwChargeOptimizerConfig);
         
         await File.WriteAllTextAsync(AppSettingsFilePath, root.ToString(Formatting.Indented));
     }
