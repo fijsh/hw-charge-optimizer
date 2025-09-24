@@ -302,6 +302,8 @@ To run the app in the background and restart on reboot:
 
 3. **Check status and logs:**
 
+   Don't forget to create the `logs` sub folder and give the service user write permissions to the `logs` folder.
+   To check the status and logs:
    ```bash
    sudo systemctl status hwco
    tail -f /usr/local/bin/hwco/logs/app[date].log
@@ -339,6 +341,11 @@ The application uses Serilog for logging. If you encounter issues:
 Feel free to submit pull requests! For issues, use the GitHub issue tracker.
 If you fork the project, it is nice to add a reference to the original repository and author.
 ---
+
+<a href="https://www.buymeacoffee.com/fijsh" target="_blank">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50" />
+</a>
+
 
 ## License
 
