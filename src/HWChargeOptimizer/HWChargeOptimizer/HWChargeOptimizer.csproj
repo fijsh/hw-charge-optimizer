@@ -6,7 +6,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <Company>Unifize B.V.</Company>
-        <AssemblyName>hco</AssemblyName>
+        <AssemblyName>hwco</AssemblyName>
     </PropertyGroup>
 
     <ItemGroup>

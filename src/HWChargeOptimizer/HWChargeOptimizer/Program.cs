@@ -26,7 +26,7 @@ Log.Logger = new LoggerConfiguration()
 builder.Logging.ClearProviders();
 builder.Logging.AddSerilog();
 
-builder.Services.Configure<HWChargeOptimizerConfig>(builder.Configuration.GetSection("BatteryOptimization"));
+builder.Services.Configure<HWChargeOptimizerConfig>(builder.Configuration.GetSection("HWChargeOptimizer"));
 
 builder.Services.AddHttpClient("NoSslValidation")
     .ConfigurePrimaryHttpMessageHandler(() =>
