@@ -31,6 +31,7 @@ Every 5 minutes (configurable) it polls the Homewizard P1 meter for current cons
 ## Known Limitations
 - Homewizard currently does not support a discharge only mode. The battery will always charge when there is excess production when in zero mode.
   - As soon as Homewizard supports a discharge only mode, this application will be updated to support that since that will be more cost-efficient.
+- The Zonneplan API has rate limits. Avoid setting the tariff refresh interval too low to prevent hitting these limits.
 
 ## Installation Guide
 
@@ -346,6 +347,4 @@ Licensed under the Creative Commons Attribution-NonCommercial (CC BY-NC) license
 
 Commercial use is not allowed without prior permission from the author.
 ```
-
 ---
-
