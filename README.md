@@ -3,7 +3,10 @@
 **Homewizard Charge Optimizer** automates Homewizard battery charging based on Zonneplan's dynamic electricity tariffs.  
 It fetches daily tariffs from Zonneplan, analyzes them, and schedules battery charging for the cheapest hours.  
 The goal: maximize savings and efficiency by charging when electricity is cheapest (or negative).  
-Runs autonomously on a Raspberry Pi for always-optimized battery charging.
+
+Run it autonomously on a Raspberry Pi for always-optimized battery charging.
+
+**Example of a calculated charging schedule:**
 
 ![battery_schedule.png](battery_schedule.png)
 
@@ -13,7 +16,7 @@ It is designed for C# developers who want a customizable, open-source alternativ
 The applications uses linear programming (https://developers.google.com/optimization/lp) to optimize battery charging schedules based on electricity prices, battery capacity, and SoC.
 Every 5 minutes (configurable) it polls the Homewizard P1 meter for current consumption/production data and battery status and recalculates the optimal charging schedule.
 
-**I cannot guarantee that this application will work for you. Use at your own risk. I am not responsible for any damage or issues caused by using this application.**
+**Disclaimer: I cannot guarantee that this application will work for you. Use at your own risk. I am not responsible for any damage or issues caused by using this application.**
 
 ---
 
@@ -33,154 +36,28 @@ Every 5 minutes (configurable) it polls the Homewizard P1 meter for current cons
   - As soon as Homewizard supports a discharge only mode, this application will be updated to support that since that will be more cost-efficient.
 - The Zonneplan API has rate limits. Avoid setting the tariff refresh interval too low to prevent hitting these limits.
 
-## Installation Guide
+## Prerequisites
 
-### 1. Prerequisites
-
-- Raspberry Pi (any model, running Raspberry Pi OS or similar)
+- Windows or Linux systems
 - .NET 9 SDK and Runtime
 - Homewizard battery and P1 meter
 - Zonneplan account with API access
 
 ---
 
-### 2. Install .NET 9 on Raspberry Pi
+## Installation on a Raspberry Pi
 
-1. **Update your system:**
-   ```bash
-   sudo apt update
-   sudo apt upgrade
-   ```
+Check the [Wiki](https://github.com/fijsh/hw-charge-optimizer/wiki/Installation-on-a-Raspberry-Pi) for the latest instructions:
 
-2. **Download and install .NET 9 SDK and Runtime:**
-    - Go to [https://dotnet.microsoft.com/en-us/download/dotnet/9.0](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
-    - Download the ARM32 or ARM64 binaries for your Pi.
-    - Example:
-      ```bash
-      wget https://download.visualstudio.microsoft.com/download/pr/your-dotnet9-arm.tar.gz
-      mkdir -p $HOME/dotnet
-      tar -xzf your-dotnet9-arm.tar.gz -C $HOME/dotnet
-      ```
-    - Add to your PATH (add to `.bashrc` for persistence):
-      ```bash
-      export DOTNET_ROOT=$HOME/dotnet
-      export PATH=$PATH:$HOME/dotnet
-      ```
+## Creating tokens for Homewizard and Zonneplan
 
-3. **Verify installation:**
-   ```bash
-   dotnet --version
-   ```
+Check the [Wiki](https://github.com/fijsh/hw-charge-optimizer/wiki/Creating-Homewizard-and-Zonneplan-tokens) for information about how to create tokens for Homewizard and Zonneplan.
 
----
+## Configure the Application
 
-### 3. Deploy Homewizard Battery Optimizer
+The `appsettings.json` file contains all configuration settings.
 
-1. **Clone or copy the repository to your Pi:**
-   ```bash
-   git clone https://github.com/fijsh/hw-charge-optimizer.git
-   cd HWChargeOptimizer
-   ```
-
-2. **Publish the app:**
-   ```bash
-   dotnet publish -c Release -r linux-arm --self-contained false -o ./publish
-   ```
-
-3. **Copy your configuration file (`appsettings.json`) to the `publish` directory.**
-
----
-
-### 4. Creating tokens
-
-For creating tokens for the P1 meter and Homewizard batteries, consult the Homewizard documentation:
-https://api-documentation.homewizard.com/docs/v2/authorization
-
-For creating tokens for Zonneplan, follow the following steps. It is the easiest to use a tool like **[Postman](https://www.postman.com/)** for this.
-
-1) Login
-
-```http
-   POST https://app-api.zonneplan.nl/auth/request   
-   Content-Type: application/json;charset=utf-8
-   
-   {
-      "email": "YOUR ZONNEPLAN EMAIL",
-   }
-```
-
-The response will look like this:
-
-```json
-{
-  "data": {
-    "uuid": "123abcde-a123-1a2b-123f-12345ab12345",
-    "email": "YOUR ZONNEPLAN EMAIL",
-    "is_activated": false,
-    "expires_at": "timestamp"
-  }
-}
-```
-
-**Now go to your e-mail and Approve the login request via the e-mail Zonneplan has sent you. After this you can continue with the next step.**
-
-Copy the `uuid` from the response, you will need it in the next step.
-
-2) Get temporary password
-
-Use the `uuid` from the previous step to request a temporary password:
-
-```http
-   GET https://app-api.zonneplan.nl/auth/request/123abcde-a123-1a2b-123f-12345ab12345 
-```
-
-The response will look like this:
-
-```json
-{
-  "data": {
-    "uuid": "123abcde-a123-1a2b-123f-12345ab12345",
-    "email": "YOUR ZONNEPLAN EMAIL",
-    "password": "YOUR_TEMPORARY_PASSWORD",
-    "is_activated": true,
-    "expires_at": "timestamp"
-  }
-}
-```
-
-You will need the `password` from the response in the next step.
-
-3) Request a new access and refresh token
-
-```http
-    POST https://app-api.zonneplan.nl/oauth/token    
-    Content-Type: application/json
-
-    {
-        "grant_type": "one_time_password",
-        "email": "YOUR ZONNEPLAN EMAIL",
-        "password": "YOUR_TEMPORARY_PASSWORD"
-    }
-```
-
-The response will look like this:
-
-```json
-{
-  "token_type": "Bearer",
-  "expires_in": 28800,
-  "access_token": "YOUR_ACCESS_TOKEN",
-  "refresh_token": "YOUR_REFRESH_TOKEN"
-}
-```
-
-Use the `access_token` and `refresh_token` in your configuration file. The application will handle token refresh automatically from now on.
-
-### 5. Configure the Application
-
-Edit the configuration file (`appsettings.json`) in the `publish` directory.
-
-#### Example Configuration (`appsettings.json`)
+### Example Configuration
 
 ```json
 {
@@ -262,76 +139,13 @@ Edit the configuration file (`appsettings.json`) in the `publish` directory.
 
 ---
 
-### 6. Run as a Service (Systemd)
-
-To run the app in the background and restart on reboot:
-
-1. **Create a systemd service file (example for `DietPi`):**
-
-   ```bash
-   sudo nano /etc/systemd/system/hwco.service
-   ```
-
-   Paste the following (adjust paths as needed):
-
-   ```
-    [Unit]
-    Description=Homewizard Charge Optimizer for dynamic tariffs
-    After=network.target
-    
-    [Service]
-    WorkingDirectory=/usr/local/bin/hwco
-    ExecStart=/home/dietpi/.dotnet/dotnet /usr/local/bin/hwco/hwco.dll
-    Restart=on-failure
-    User=dietpi
-    Environment=DOTNET_ROOT=/home/dietpi/.dotnet
-    Environment=PATH=/home/dietpi/.dotnet:/usr/local/bin:/usr/bin:/bin
-    
-    [Install]
-    WantedBy=multi-user.target
-
-   ```
-
-2. **Enable and start the service:**
-
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable hwco
-   sudo systemctl start hwco
-   ```
-
-3. **Check status and logs:**
-
-   Don't forget to create the `logs` sub folder and give the service user write permissions to the `logs` folder.
-   To check the status and logs:
-   ```bash
-   sudo systemctl status hwco
-   tail -f /usr/local/bin/hwco/logs/app[date].log
-   ```
-
----
-
-## Updating the Application
-
-1. Stop the service:
-   ```bash
-   sudo systemctl stop hwco
-   ```
-2. Copy new files or re-publish.
-3. Start the service:
-   ```bash
-   sudo systemctl start hwco
-   ```
-
----
-
 ## Troubleshooting
 
 The application uses Serilog for logging. If you encounter issues:
 
-- **Check logs** with `tail -f /usr/local/bin/hwco/logs/app[date].log` for errors.
 - Ensure your configuration file is correct and tokens are valid.
 - Verify network connectivity to Homewizard and Zonneplan endpoints.
+- Make sure you don't hit Zonneplan API rate limits.
 - You must create a local user/token for the P1 meter and each Homewizard battery.
 
 ---
