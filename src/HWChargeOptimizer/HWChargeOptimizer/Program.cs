@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using HomewizardBatteryOptimization.Homewizard;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -7,6 +6,7 @@ using Serilog;
 using Serilog.Events;
 using HWChargeOptimizer.Configuration;
 using HWChargeOptimizer.Homewizard;
+using HWChargeOptimizer.Reporter;
 using HWChargeOptimizer.Zonneplan;
 using HomewizardAuthentication = HWChargeOptimizer.Homewizard.HomewizardAuthentication;
 using ZonneplanAuthentication = HWChargeOptimizer.Zonneplan.ZonneplanAuthentication;
@@ -37,12 +37,41 @@ builder.Services.AddTransient<IZonneplanAuthentication, ZonneplanAuthentication>
 builder.Services.AddSingleton<IHomewizardAuthentication, HomewizardAuthentication>();
 builder.Services.AddSingleton<IHomeWizardBatteryController, HomeWizardBatteryController>();
 builder.Services.AddTransient<IZonneplanTariffReader, ZonneplanTariffReader>();
+builder.Services.AddTransient<ChargeScheduleReporter>();
 builder.Services.AddTransient<ConfigWriter>();
 
-// recurring service to refresh Zonneplan token every 4 hours
-builder.Services.AddHostedService<ZonneplanScheduleService>();
-builder.Services.AddHostedService<HomewizardScheduleService>();
+// Check for command-line arguments
+if (args.Length > 0)
+{
+    var command = args[0].ToLowerInvariant();
+    var host = builder.Build();
+    
+    switch (command)
+    {
+        case "--report":
+        case "-r":
+            var reporter = host.Services.GetRequiredService<ChargeScheduleReporter>();
+            await reporter.RunAsync();
+            break;
+        
+        case "--chart":
+        case "-c":
+            var reporterChart = host.Services.GetRequiredService<ChargeScheduleReporter>();
+            await reporterChart.RunAsync(true);
+            break;
+            
+        default:
+            // Default behavior - run the hosted services
+            Console.WriteLine("Invalid argument. Use --report (-r) to generate a report or --chart (-c) to generate a chart.");
+            break;
+    }
+}
+else
+{
+    builder.Services.AddHostedService<ZonneplanScheduleService>();
+    builder.Services.AddHostedService<HomewizardScheduleService>();
+    
+    var host = builder.Build();
 
-var host = builder.Build();
-
-await host.RunAsync();
+    await host.RunAsync();
+}

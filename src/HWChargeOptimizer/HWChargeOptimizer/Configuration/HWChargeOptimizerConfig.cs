@@ -74,8 +74,17 @@ public class Battery
     /// The token used for authentication with the battery. Refer to the Homewizard documentation for how to obtain this token.
     /// </summary>
     public required string Token { get; set; }
-    
+    /// <summary>
+    /// The capacity in kWh of the battery.
+    /// </summary>
     public required double CapacityKWh { get; set; }
+    /// <summary>
+    /// The latest state of charge in kWh. This is stored at runtime.</summary>
+    public double? StateOfChargePercentage { get; set; }
+    /// <summary>
+    /// Date and time when the battery SoC was last updated. This is stored at runtime.
+    /// </summary>
+    public DateTimeOffset? LastUpdated { get; set; }
 }
 
 public class Zonneplan
