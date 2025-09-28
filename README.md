@@ -28,6 +28,8 @@ Every 5 minutes (configurable) it polls the Homewizard P1 meter for current cons
 - Configurable thresholds and parameters
 - Runs as a background service on for example a Raspberry Pi
 - Automatic restart on reboot when configured as a service
+- Chart generation of the active charge plan for easy visualization
+- Command line report functionality for quick status checks
 
 ---
 
@@ -81,6 +83,7 @@ The `appsettings.json` file contains all configuration settings.
           "Username": "your-battery-username",
           "Ip": "ip address of your battery",
           "Token": "your-battery-token",
+          "StageOfChargePercentage": 0.0,
           "CapacityKWh": 2.7
         }
       ],
@@ -125,6 +128,8 @@ The `appsettings.json` file contains all configuration settings.
         - `Ip`: IP address of the battery.
         - `Token`: Authentication token for the battery.
         - `CapacityKWh`: Battery capacity in kWh.
+        - `StageOfChargePercentage`: Current state of charge percentage (0-100). (auto-managed)
+        - `LastUpdated`: Last update timestamp (auto-managed).
     - `MaxChargeRateKWh`: Maximum charge rate in kWh. Set according to your battery specs.
     - `MaxDischargeRateKWh`: Maximum discharge rate in kWh. Set according to your battery specs.
     - `ChargingEfficiency`: Charging efficiency (0-1). Set according to your battery specs.
@@ -138,6 +143,8 @@ The `appsettings.json` file contains all configuration settings.
     - `Tariffs`: List of tariffs (auto-managed).
 
 ---
+
+For auto-managed fields, the application will update them as needed. Just enter a 0 for numeric fields and null for date fields.
 
 ## Troubleshooting
 
