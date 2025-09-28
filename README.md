@@ -1,4 +1,4 @@
-# Homewizard Charge Optimizer with Zonneplan Integration
+# Homewizard Charge Optimizer
 
 **Homewizard Charge Optimizer** automates Homewizard battery charging based on Zonneplan's dynamic electricity tariffs.  
 It fetches daily tariffs from Zonneplan, analyzes them, and schedules battery charging for the cheapest hours.  
