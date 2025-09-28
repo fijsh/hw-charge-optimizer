@@ -1,14 +1,14 @@
-﻿using Google.OrTools.LinearSolver;
+﻿using System.Reflection;
+using Google.OrTools.LinearSolver;
 using HWChargeOptimizer.Calculations;
 using HWChargeOptimizer.Configuration;
 using HWChargeOptimizer.Homewizard;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ScottPlot;
 
 namespace HWChargeOptimizer.Reporter;
 
-public class ChargeScheduleReporter(ILogger<HomewizardScheduleService> logger, IOptionsMonitor<HWChargeOptimizerConfig> config, IHomeWizardBatteryController batteryController)
+public class ChargeScheduleReporter(IOptionsMonitor<HWChargeOptimizerConfig> config, IHomeWizardBatteryController batteryController)
 {
     private const string SystemTimeZone = "W. Europe Standard Time";
 
@@ -19,7 +19,7 @@ public class ChargeScheduleReporter(ILogger<HomewizardScheduleService> logger, I
     {
         var timeZone = TimeZoneInfo.FindSystemTimeZoneById(SystemTimeZone);
 
-        logger.LogInformation("Starting calculation of optimal charging schedule...");
+        Console.WriteLine("Starting calculation of optimal charging schedule...");
 
         var currentUtcDateTime = DateTimeOffset.UtcNow;
         currentUtcDateTime = new DateTimeOffset(currentUtcDateTime.Year, currentUtcDateTime.Month, currentUtcDateTime.Day, currentUtcDateTime.Hour, 0, 0, currentUtcDateTime.Offset);
@@ -31,7 +31,7 @@ public class ChargeScheduleReporter(ILogger<HomewizardScheduleService> logger, I
         var tariffs = cfg.Zonneplan.Tariffs?.Where(t => t.Date >= currentUtcDateTime).ToList() ?? [];
         if (tariffs.Count == 0)
         {
-            logger.LogError("No current tariffs available in the Zonneplan tariff list.");
+            Console.WriteLine("No current tariffs available in the Zonneplan tariff list.");
             return;
         }
 
@@ -46,7 +46,7 @@ public class ChargeScheduleReporter(ILogger<HomewizardScheduleService> logger, I
 
         if (currentStateOfCharge is null)
         {
-            logger.LogError("No current state of charge is stored in the configuration file. Please let the application read the state of charge from the Homewizard battery first before running the report or chart function.");
+            Console.WriteLine("No current state of charge is stored in the configuration file. Please let the application read the state of charge from the Homewizard battery first before running the report or chart function.");
             return;
         }
 
@@ -71,25 +71,25 @@ public class ChargeScheduleReporter(ILogger<HomewizardScheduleService> logger, I
         var currentTariff = tariffs.SingleOrDefault(s => s.Date == currentUtcDateTime);
         if (currentTariff == null)
         {
-            logger.LogError("No current tariff found for the current hour {currentHour}. This should never happen.", currentUtcDateTime);
+            Console.WriteLine($"No current tariff found for the current hour {currentUtcDateTime}. This should never happen.");
             return;
         }
 
         var currentBatteryMode = p1.BatteryMode;
 
-        logger.LogInformation("-----------------------------------------------------------");
-        logger.LogInformation("Current battery mode:                         {currentBatteryMode}", currentBatteryMode);
-        logger.LogInformation("Total battery capacity:                       {combinedBatteryCapacity} kWh", combinedBatteryCapacity);
-        logger.LogInformation("Current state of charge (combined):           {currentStateOfCharge:F4} kWh", currentStateOfCharge);
-        logger.LogInformation("Current house power consumption / production: {currentPowerUsage} Watt", currentHousePowerUsage);
-        logger.LogInformation("Current tariff:                               {currentTariff:F4} / kWh", currentTariff.Price);
-        logger.LogInformation("Lowest tariff today:                          {lowestTariff:F4} / kWh", lowestTariff);
-        logger.LogInformation("Highest tariff today:                         {highestTariff:F4} / kWh", highestTariff);
-        logger.LogInformation("Charging efficiency:                          {chargingEfficiency} %", chargingEfficiency * 100);
-        logger.LogInformation("Discharging efficiency:                       {dischargingEfficiency} %", dischargingEfficiency * 100);
-        logger.LogInformation("-----------------------------------------------------------");
+        Console.WriteLine("-----------------------------------------------------------");
+        Console.WriteLine($"Current battery mode:                         {currentBatteryMode}");
+        Console.WriteLine($"Total battery capacity:                       {combinedBatteryCapacity} kWh");
+        Console.WriteLine($"Current state of charge (combined):           {currentStateOfCharge:F4} kWh");
+        Console.WriteLine($"Current house power consumption / production: {currentHousePowerUsage} Watt");
+        Console.WriteLine($"Current tariff:                               {currentTariff.Price:F4} / kWh");
+        Console.WriteLine($"Lowest tariff today:                          {lowestTariff:F4} / kWh");
+        Console.WriteLine($"Highest tariff today:                         {highestTariff:F4} / kWh");
+        Console.WriteLine($"Charging efficiency:                          {chargingEfficiency * 100} %");
+        Console.WriteLine($"Discharging efficiency:                       {dischargingEfficiency * 100} %");
+        Console.WriteLine("-----------------------------------------------------------");
 
-        logger.LogInformation("Starting calculation of optimal charging schedule...");
+        Console.WriteLine("Starting calculation of optimal charging schedule...");
 
         // Create the solver that will calculate the most efficient charging
         using var solver = Solver.CreateSolver("SCIP");
@@ -103,8 +103,8 @@ public class ChargeScheduleReporter(ILogger<HomewizardScheduleService> logger, I
         // Display results
         if (resultStatus is Solver.ResultStatus.OPTIMAL or Solver.ResultStatus.FEASIBLE)
         {
-            logger.LogInformation("-----------------------------------------------------------");
-            logger.LogInformation("Local time  | C | D |  CQ   |  DQ   |  SoC | Tariff");
+            Console.WriteLine("-----------------------------------------------------------");
+            Console.WriteLine("Local time  | C | D |  CQ   |  DQ   |  SoC | Tariff");
 
             foreach (var tariff in tariffs)
             {
@@ -115,31 +115,30 @@ public class ChargeScheduleReporter(ILogger<HomewizardScheduleService> logger, I
                 var chargingStatus = charge > RoundingFactor ? "Y" : " ";
                 var dischargingStatus = discharge > RoundingFactor ? "Y" : " ";
 
-                logger.LogInformation(
-                    "{DateTimeOffset:dd/MM HH:mm} | {ChargingStatus} | {DischargingStatus} | {Charge,5:F2} | {Discharge,5:F2} | {Soc,3:F2} | {TariffPrice:F5}",
-                    TimeZoneInfo.ConvertTime(tariff.Date, timeZone), chargingStatus, dischargingStatus, charge, discharge, soc, tariff.Price);
+                Console.WriteLine(
+                    $"{TimeZoneInfo.ConvertTime(tariff.Date, timeZone):dd/MM HH:mm} | {chargingStatus} | {dischargingStatus} | {charge,5:F2} | {discharge,5:F2} | {soc,3:F2} | {tariff.Price:F5}");
             }
 
             // Calculate net cost
             var totalCost = tariffs.Sum(t => t.Price * scheduleVariables.ChargeAmount[t.Date].SolutionValue()) / 100;
             var totalValue = tariffs.Sum(t => t.Price * scheduleVariables.DischargeAmount[t.Date].SolutionValue()) / 100;
 
-            logger.LogInformation("-----------------------------------------------------------");
-            logger.LogInformation("Total charging cost:   € {TotalCost,5:F2}", totalCost);
-            logger.LogInformation("Total discharge cost:  € {TotalValue,5:F2}", totalValue);
-            logger.LogInformation("Net cost:              € {NetCost,5:F2}", totalCost - totalValue);
-            logger.LogInformation("-----------------------------------------------------------");
+            Console.WriteLine("-----------------------------------------------------------");
+            Console.WriteLine($"Total charging cost:   € {totalCost,5:F2}", totalCost);
+            Console.WriteLine($"Total discharge cost:  € {totalValue,5:F2}", totalValue);
+            Console.WriteLine($"Net cost:              € {totalCost - totalValue,5:F2}");
+            Console.WriteLine("-----------------------------------------------------------");
 
             if (generateChart)
                 CreateBatterySchedulePlot(tariffs, scheduleVariables.ChargeAmount, scheduleVariables.DischargeAmount, scheduleVariables.StateOfCharge);
         }
         else
         {
-            logger.LogWarning("No solution found. Setting battery to zero charging mode.");
+            Console.WriteLine("No solution found. Setting battery to zero charging mode.");
         }
     }
 
-    private void CreateBatterySchedulePlot(List<Tariff> tariffs,
+    private static void CreateBatterySchedulePlot(List<Tariff> tariffs,
         Dictionary<DateTimeOffset, Variable> chargeAmount,
         Dictionary<DateTimeOffset, Variable> dischargeAmount,
         Dictionary<DateTimeOffset, Variable> stateOfCharge)
@@ -166,7 +165,19 @@ public class ChargeScheduleReporter(ILogger<HomewizardScheduleService> logger, I
 
         // Create plot
         var plot = new Plot();
-        //plot.DataBackground.AntiAlias = true;
+
+        var fontLocation = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? throw new InvalidOperationException("Cannot find executing assembly location."), @"Fonts/Roboto-VariableFont.ttf");
+        if (!File.Exists(fontLocation))
+            throw new InvalidOperationException($"Font file not found at {fontLocation}. Cannot create chart.");
+        
+        Console.WriteLine("Using font file at " + fontLocation);
+        
+        // Add a font file to use its typeface for fonts with a given name
+        Fonts.AddFontFile(
+            name: "Roboto",
+            path: Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? throw new InvalidOperationException("Cannot find fonts."), @"Fonts/Roboto-VariableFont.ttf"));
+        
+        plot.Font.Set("Roboto");
         
         // change figure colors for dark mode
         plot.FigureBackground.Color = Color.FromHex("#181818");
@@ -257,7 +268,7 @@ public class ChargeScheduleReporter(ILogger<HomewizardScheduleService> logger, I
         // set the color palette used when coloring new items added to the plot
         plot.Add.Palette = new ScottPlot.Palettes.Penumbra();
         
-        var plotPath = Path.Combine(Environment.CurrentDirectory, $"battery_schedule_{DateTimeOffset.Now:dd-MM-yyyyHHmmss}.png");
+        var plotPath = Path.Combine(Environment.CurrentDirectory, $"battery-schedule-{DateTimeOffset.Now:dd-MM-yyyy-HHmmss}.png");
         
         // Save the plot
         plot.SavePng(plotPath, 1200, 600);

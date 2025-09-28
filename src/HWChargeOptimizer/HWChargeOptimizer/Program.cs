@@ -11,7 +11,15 @@ using HWChargeOptimizer.Zonneplan;
 using HomewizardAuthentication = HWChargeOptimizer.Homewizard.HomewizardAuthentication;
 using ZonneplanAuthentication = HWChargeOptimizer.Zonneplan.ZonneplanAuthentication;
 
+using Microsoft.Extensions.Configuration;
+
+// Set the base path to the executable's directory
+var configBuilder = new ConfigurationBuilder()
+    .SetBasePath(AppContext.BaseDirectory)
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+
 var builder = Host.CreateApplicationBuilder(args);
+builder.Configuration.AddConfiguration(configBuilder.Build());
 
 // Serilog configureren
 Log.Logger = new LoggerConfiguration()
@@ -32,7 +40,7 @@ builder.Services.AddHttpClient("NoSslValidation")
     .ConfigurePrimaryHttpMessageHandler(() =>
         new HttpClientHandler { ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator });
 
-builder.Services.AddHttpClient(); // Default HttpClient
+builder.Services.AddHttpClient();
 builder.Services.AddTransient<IZonneplanAuthentication, ZonneplanAuthentication>();
 builder.Services.AddSingleton<IHomewizardAuthentication, HomewizardAuthentication>();
 builder.Services.AddSingleton<IHomeWizardBatteryController, HomeWizardBatteryController>();
@@ -44,34 +52,52 @@ builder.Services.AddTransient<ConfigWriter>();
 if (args.Length > 0)
 {
     var command = args[0].ToLowerInvariant();
-    var host = builder.Build();
     
     switch (command)
     {
         case "--report":
         case "-r":
-            var reporter = host.Services.GetRequiredService<ChargeScheduleReporter>();
+            var reportHost = builder.Build();
+            var reporter = reportHost.Services.GetRequiredService<ChargeScheduleReporter>();
             await reporter.RunAsync();
             break;
         
         case "--chart":
         case "-c":
-            var reporterChart = host.Services.GetRequiredService<ChargeScheduleReporter>();
+            var reportChartHost = builder.Build();
+            var reporterChart = reportChartHost.Services.GetRequiredService<ChargeScheduleReporter>();
             await reporterChart.RunAsync(true);
+            break;
+        
+        case "--service":
+        case "-s":
+            builder.Services.AddHostedService<ZonneplanScheduleService>();
+            builder.Services.AddHostedService<HomewizardScheduleService>();
+    
+            var serviceHost = builder.Build();
+
+            await serviceHost.RunAsync();
             break;
             
         default:
-            // Default behavior - run the hosted services
-            Console.WriteLine("Invalid argument. Use --report (-r) to generate a report or --chart (-c) to generate a chart.");
+            Console.WriteLine("Invalid arguments specified.");
+            WriteUsageInstructions();
             break;
     }
 }
 else
 {
-    builder.Services.AddHostedService<ZonneplanScheduleService>();
-    builder.Services.AddHostedService<HomewizardScheduleService>();
-    
-    var host = builder.Build();
+    Console.WriteLine("No arguments specified.");
+    WriteUsageInstructions();
+}
 
-    await host.RunAsync();
+return;
+
+static void WriteUsageInstructions()
+{
+    Console.WriteLine();
+    Console.WriteLine("Usage:");
+    Console.WriteLine("  HWChargeOptimizer --report   : Generate a charge schedule report.");
+    Console.WriteLine("  HWChargeOptimizer --chart    : Generate a charge schedule chart.");
+    Console.WriteLine("  HWChargeOptimizer --service  : Run as a background service.");
 }
