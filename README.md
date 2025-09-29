@@ -139,12 +139,15 @@ The `appsettings.json` file contains all configuration settings.
     - `Authentication`: Zonneplan API credentials.
         - `BaseUri`: Zonneplan API base URL.
         - `Username`: Your Zonneplan account username.
-        - `AccessToken`, `RefreshToken`, `LastUpdated`, `ExpiresIn`: Managed by the app after first configuration.
+        - `AccessToken`: First access token for Zonneplan API, after this will be auto-managed.
+        - `RefreshToken`: First refresh token for Zonneplan API, after this will be auto-managed.
+        - `LastUpdated`, First update timestamp (auto-managed).
+        - `ExpiresIn`: Number of seconds until the access token expires (auto-managed).
     - `Tariffs`: List of tariffs (auto-managed).
 
 ---
 
-For auto-managed fields, the application will update them as needed. Just enter a 0 for numeric fields and null for date fields.
+**For auto-managed fields, the application will update them as needed. Just enter a 0 for numeric fields and null for date fields. See the example appsettings.json in the repo.**
 
 ## Troubleshooting
 
@@ -162,11 +165,6 @@ The application uses Serilog for logging. If you encounter issues:
 Feel free to submit pull requests! For issues, use the GitHub issue tracker.
 If you fork the project, it is nice to add a reference to the original repository and author.
 ---
-
-<a href="https://www.buymeacoffee.com/fijsh" target="_blank">
-  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50" />
-</a>
-
 
 ## License
 
