@@ -143,6 +143,14 @@ public class ChargeScheduleReporter(IOptionsMonitor<HWChargeOptimizerConfig> con
         Dictionary<DateTimeOffset, Variable> dischargeAmount,
         Dictionary<DateTimeOffset, Variable> stateOfCharge)
     {
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(SystemTimeZone);
+        
+        // convert tariff times to local time zone for plotting
+        foreach (var tariff in tariffs)
+        {
+            tariff.Date = TimeZoneInfo.ConvertTime(tariff.Date, timeZone);
+        }
+        
         // Create arrays for plotting
         var times = new double[tariffs.Count];
         var socValues = new double[tariffs.Count];
@@ -188,7 +196,7 @@ public class ChargeScheduleReporter(IOptionsMonitor<HWChargeOptimizerConfig> con
         plot.Grid.MajorLineColor = Color.FromHex("#404040");
 
         // change legend colors for dark mode
-        plot.Legend.BackgroundColor = Color.FromHex("#404040");
+        plot.Legend.BackgroundColor = Color.FromHex("#404040").WithAlpha(0.7);;
         plot.Legend.FontColor = Color.FromHex("#d7d7d7");
         plot.Legend.OutlineColor = Color.FromHex("#d7d7d7");
 
