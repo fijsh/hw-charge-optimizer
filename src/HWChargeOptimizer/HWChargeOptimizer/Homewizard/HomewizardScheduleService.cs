@@ -241,11 +241,9 @@ public class HomewizardScheduleService(ILogger<HomewizardScheduleService> logger
         var currentDateTime = DateTimeOffset.UtcNow;
         
         var socList = await batteryController.GetBatteryStateOfChargeAsync();
-        logger.LogInformation("State of Charge of batteries:");
         
         foreach (var soc in socList)
         {
-            logger.LogInformation(" - {name}: {soc} %", soc.Name, soc.StateOfChargePercentage);
             config.CurrentValue.Homewizard.BatteryConfiguration.Batteries.Single(b => b.Ip == soc.Ip).StateOfChargePercentage = soc.StateOfChargePercentage;
             config.CurrentValue.Homewizard.BatteryConfiguration.Batteries.Single(b => b.Ip == soc.Ip).LastUpdated = currentDateTime;
         }

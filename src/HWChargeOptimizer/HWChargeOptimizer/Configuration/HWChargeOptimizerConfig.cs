@@ -98,8 +98,8 @@ public class ZonneplanAuthentication
 {
     public required string BaseUri { get; set; }
     public required string Username { get; set; }
-    public string? AccessToken { get; set; }
-    public string? RefreshToken { get; set; }
+    public required string AccessToken { get; set; }
+    public required string RefreshToken { get; set; }
     
     [Newtonsoft.Json.JsonProperty("LastUpdated", Required = Newtonsoft.Json.Required.Default, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore )]
     [Newtonsoft.Json.JsonConverter(typeof(DateFormatConverter))]
