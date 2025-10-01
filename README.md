@@ -83,7 +83,7 @@ The `appsettings.json` file contains all configuration settings.
           "Username": "your-battery-username",
           "Ip": "ip address of your battery",
           "Token": "your-battery-token",
-          "StageOfChargePercentage": 0.0,
+          "StateOfChargePercentage": 0.0,
           "CapacityKWh": 2.7
         }
       ],
@@ -128,7 +128,7 @@ The `appsettings.json` file contains all configuration settings.
         - `Ip`: IP address of the battery.
         - `Token`: Authentication token for the battery.
         - `CapacityKWh`: Battery capacity in kWh.
-        - `StageOfChargePercentage`: Current state of charge percentage (0-100). (auto-managed)
+        - `StateOfChargePercentage`: Current state of charge percentage (0-100). (auto-managed)
         - `LastUpdated`: Last update timestamp (auto-managed).
     - `MaxChargeRateKWh`: Maximum charge rate in kWh. Set according to your battery specs.
     - `MaxDischargeRateKWh`: Maximum discharge rate in kWh. Set according to your battery specs.
