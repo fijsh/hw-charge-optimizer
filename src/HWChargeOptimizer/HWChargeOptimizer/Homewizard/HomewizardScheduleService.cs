@@ -13,6 +13,8 @@ public class HomewizardScheduleService(ILogger<HomewizardScheduleService> logger
 
     // Use a slightly increased factor to avoid floating point precision issues in the solver
     private const double RoundingFactor = 0.01;
+    
+    private const string SolverType = "GLOP";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -93,10 +95,10 @@ public class HomewizardScheduleService(ILogger<HomewizardScheduleService> logger
                 };
 
                 // Create the solver that will calculate the most efficient charging
-                using var solver = Solver.CreateSolver("GLOP");
+                using var solver = Solver.CreateSolver(SolverType);
                 if (solver == null)
                 {
-                    throw new InvalidOperationException("Failed to create SCIP solver");
+                    throw new InvalidOperationException($"Failed to create {SolverType} solver");
                 }
 
                 var resultStatus = OptimizeSchedule.Calculate(solver, scheduleVariables);
