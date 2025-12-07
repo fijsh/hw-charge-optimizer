@@ -144,12 +144,12 @@ public class HomewizardScheduleService(ILogger<HomewizardScheduleService> logger
                     if (startCharging)
                     {
                         logger.LogInformation("Setting battery to full charging mode.");
-                        await SetBatteryModeAsync(BatteryMode.ToFull);
+                        await SetBatteryModeAsync(BatteryMode.FullCharge);
                     }
                     else if (startDischarging)
                     {
-                        logger.LogInformation("Setting battery to zero charging mode.");
-                        await SetBatteryModeAsync(BatteryMode.Zero);
+                        logger.LogInformation("Setting battery to discharge only mode.");
+                        await SetBatteryModeAsync(BatteryMode.ZeroDischargeOnly);
                     }
                     else
                     {
@@ -159,8 +159,8 @@ public class HomewizardScheduleService(ILogger<HomewizardScheduleService> logger
                 }
                 else
                 {
-                    logger.LogWarning("No solution found. Setting battery to zero charging mode.");
-                    await SetBatteryModeAsync(BatteryMode.Zero);
+                    logger.LogWarning("No solution found. Setting battery to zero mode.");
+                    await SetBatteryModeAsync(BatteryMode.Zero); // set to zero mode as a fallback
                 }
             }
             catch (Exception ex)

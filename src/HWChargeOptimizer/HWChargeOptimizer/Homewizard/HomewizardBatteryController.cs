@@ -79,7 +79,7 @@ public class HomeWizardBatteryController : IHomeWizardBatteryController
                 CapacityKWh = battery.CapacityKWh,
                 StateOfChargePercentage = jsonResponse.Value<double>("state_of_charge_pct")
             });
-            
+
             _logger.LogInformation("Battery '{BatteryName}' state of charge: {StateOfCharge}%", battery.Name, jsonResponse.Value<double>("state_of_charge_pct"));
         }
 
@@ -108,11 +108,32 @@ public class HomeWizardBatteryController : IHomeWizardBatteryController
         };
     }
 
-    public async Task<JObject?> SetBatteryModeAsync(string mode)
+    public async Task<JObject?> SetBatteryModeAsync(string hwcoBatteryMode)
     {
-        _logger.LogInformation("Setting Homewizard battery mode to {Mode}...", mode);
+        string[] permissions = hwcoBatteryMode switch
+        {
+            BatteryMode.FullCharge => [], // FullCharge mode does not allow permissions to be set, this is handled below
+            BatteryMode.ZeroDischargeOnly => [Permission.DischargeAllowed],
+            BatteryMode.ZeroChargeOnly => [Permission.ChargeAllowed],
+            BatteryMode.Zero => [Permission.ChargeAllowed, Permission.DischargeAllowed],
+            BatteryMode.Standby => [],
+            _ => throw new Exception($"Unknown battery mode '{hwcoBatteryMode}'")
+        };
 
-        var payload = JObject.FromObject(new { mode });
+        var mode = hwcoBatteryMode switch
+        {
+            BatteryMode.FullCharge => "to_full",
+            BatteryMode.ZeroDischargeOnly => "zero",
+            BatteryMode.ZeroChargeOnly => "zero",
+            BatteryMode.Zero => "zero",
+            BatteryMode.Standby => "zero", // Standby is achieved by removing all permissions in zero mode, standby should not be used anymore since this has become legacy according to the Homewizard API docs
+            _ => throw new Exception($"Unknown battery mode '{hwcoBatteryMode}'")
+        };
+        
+        _logger.LogInformation("Setting battery mode to {HwcoMode} (HomeWizard mode: {Mode}) with permissions: {Permissions}", hwcoBatteryMode, mode, string.Join(", ", permissions));
+
+        // FullCharge mode does not allow permissions to be set
+        var payload = hwcoBatteryMode == BatteryMode.FullCharge ? JObject.FromObject(new { mode }) : JObject.FromObject(new { mode, permissions });
 
         var request = new HttpRequestMessage(HttpMethod.Put, $"{new Uri(string.Concat("https://", _config.CurrentValue.Homewizard.P1.Ip, "/api/batteries"))}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.CurrentValue.Homewizard.P1.Token);
@@ -138,22 +159,48 @@ public class HomeWizardBatteryController : IHomeWizardBatteryController
     }
 }
 
-public struct BatteryMode
+/// <summary>
+/// These are the battery modes available in this controller. They map to Homewizard modes.
+/// </summary>
+internal struct BatteryMode
 {
     /// <summary>
-    /// NOM modus, battery tries to keep house at 0 kWh consumption.
+    /// NoM mode, battery tries to keep house at 0 kWh consumption. The battery will both charge and discharge as needed.
     /// </summary>
     public const string Zero = "zero";
 
     /// <summary>
     /// Forced full charge mode, battery will charge to 100% regardless of consumption.
     /// </summary>
-    public const string ToFull = "to_full";
+    public const string FullCharge = "fullcharge";
+
+    /// <summary>
+    /// The battery will only charge, it will not discharge.
+    /// </summary>
+    public const string ZeroChargeOnly = "chargeonly";
+
+    /// <summary>
+    /// The battery will only discharge, it will not charge.
+    /// </summary>
+    public const string ZeroDischargeOnly = "dischargeonly";
 
     /// <summary>
     /// Battery will not charge or discharge, it will only keep the current state.
     /// </summary>
     public const string Standby = "standby";
+}
+
+internal struct Permission
+{
+    /// <summary>
+    /// The battery is allowed to charge.
+    /// </summary>
+    public const string ChargeAllowed = "charge_allowed";
+
+    /// <summary>
+    /// The battery is allowed to discharge.
+    /// </summary>
+    public const string DischargeAllowed = "discharge_allowed";
 }
 
 /// <summary>
