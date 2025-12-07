@@ -24,7 +24,7 @@ Every 5 minutes (configurable) it polls the Homewizard P1 meter for current cons
 
 - Automatic retrieval of Zonneplan dynamic tariffs
 - Smart scheduling for Homewizard battery charging
-- Support for multiple Homewizard batteries (only tested with one battery, since I only have one)
+- Support for multiple Homewizard batteries
 - Configurable thresholds and parameters
 - Runs as a background service on for example a Raspberry Pi
 - Automatic restart on reboot when configured as a service
@@ -34,8 +34,6 @@ Every 5 minutes (configurable) it polls the Homewizard P1 meter for current cons
 ---
 
 ## Known Limitations
-- Homewizard currently does not support a discharge only mode. The battery will always charge when there is excess production when in zero mode.
-  - As soon as Homewizard supports a discharge only mode, this application will be updated to support that since that will be more cost-efficient.
 - The Zonneplan API has rate limits. Avoid setting the tariff refresh interval too low to prevent hitting these limits.
 
 ## Prerequisites
@@ -44,6 +42,7 @@ Every 5 minutes (configurable) it polls the Homewizard P1 meter for current cons
 - .NET 9 SDK and Runtime
 - Homewizard battery and P1 meter
 - Zonneplan account with API access
+- ! You need to have the latest (bèta) firmware of the Homewizard P1 meter since support for discharge only mode has been implemented in the main branch.
 
 ---
 
