@@ -165,7 +165,7 @@ public class HomeWizardBatteryController : IHomeWizardBatteryController
 internal struct BatteryMode
 {
     /// <summary>
-    /// NoM modus, battery tries to keep house at 0 kWh consumption. The battery will both charge and discharge as needed.
+    /// NoM mode, battery tries to keep house at 0 kWh consumption. The battery will both charge and discharge as needed.
     /// </summary>
     public const string Zero = "zero";
 
