@@ -112,7 +112,7 @@ public class HomeWizardBatteryController : IHomeWizardBatteryController
     {
         string[] permissions = hwcoBatteryMode switch
         {
-            // BatteryMode.FullCharge => FullCharge mode does not allow permissions to be set
+            BatteryMode.FullCharge => [], // FullCharge mode does not allow permissions to be set, this is handled below
             BatteryMode.ZeroDischargeOnly => [Permission.DischargeAllowed],
             BatteryMode.ZeroChargeOnly => [Permission.ChargeAllowed],
             BatteryMode.Zero => [Permission.ChargeAllowed, Permission.DischargeAllowed],
@@ -133,7 +133,7 @@ public class HomeWizardBatteryController : IHomeWizardBatteryController
         _logger.LogInformation("Setting battery mode to {HwcoMode} (HomeWizard mode: {Mode}) with permissions: {Permissions}", hwcoBatteryMode, mode, string.Join(", ", permissions));
 
         // FullCharge mode does not allow permissions to be set
-        var payload = mode == BatteryMode.FullCharge ? JObject.FromObject(new { mode }) : JObject.FromObject(new { mode, permissions });
+        var payload = hwcoBatteryMode == BatteryMode.FullCharge ? JObject.FromObject(new { mode }) : JObject.FromObject(new { mode, permissions });
 
         var request = new HttpRequestMessage(HttpMethod.Put, $"{new Uri(string.Concat("https://", _config.CurrentValue.Homewizard.P1.Ip, "/api/batteries"))}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.CurrentValue.Homewizard.P1.Token);
