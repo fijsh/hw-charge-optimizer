@@ -148,7 +148,7 @@ public class HomewizardScheduleService(ILogger<HomewizardScheduleService> logger
                     }
                     else if (startDischarging)
                     {
-                        logger.LogInformation("Setting battery to zero charging mode.");
+                        logger.LogInformation("Setting battery to discharge only mode.");
                         await SetBatteryModeAsync(BatteryMode.ZeroDischargeOnly);
                     }
                     else
