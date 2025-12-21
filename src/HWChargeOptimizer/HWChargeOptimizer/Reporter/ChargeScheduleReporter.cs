@@ -92,7 +92,7 @@ public class ChargeScheduleReporter(IOptionsMonitor<HWChargeOptimizerConfig> con
         Console.WriteLine("Starting calculation of optimal charging schedule...");
 
         // Create the solver that will calculate the most efficient charging
-        using var solver = Solver.CreateSolver("SCIP");
+        using var solver = Solver.CreateSolver("GLOP");
         if (solver == null)
         {
             throw new InvalidOperationException("Failed to create SCIP solver");

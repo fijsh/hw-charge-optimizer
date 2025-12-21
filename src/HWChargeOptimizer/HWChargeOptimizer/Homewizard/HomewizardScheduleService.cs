@@ -1,4 +1,5 @@
-﻿using Google.OrTools.LinearSolver;
+﻿using System.Globalization;
+using Google.OrTools.LinearSolver;
 using HWChargeOptimizer.Calculations;
 using HWChargeOptimizer.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -63,9 +64,12 @@ public class HomewizardScheduleService(ILogger<HomewizardScheduleService> logger
                     logger.LogError("No current tariff found for the current hour {currentHour}. This should never happen.", currentUtcDateTime);
                     continue;
                 }
-
+                
                 // lowest and highest tariff today
-                var todayTariffs = tariffs.Where(t => TimeZoneInfo.ConvertTime(t.Date, timeZone).Date == TimeZoneInfo.ConvertTime(currentUtcDateTime.Date, timeZone)).ToList();
+                var todayTariffs = tariffs.Where(t => 
+                    TimeZoneInfo.ConvertTime(t.Date, timeZone).Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) 
+                    == TimeZoneInfo.ConvertTime(currentUtcDateTime.Date, timeZone).Date.ToString("yyyy-MM-dd")).ToList();
+                
                 var lowestTariff = todayTariffs.Min(t => t.Price);
                 var highestTariff = todayTariffs.Max(t => t.Price);
 
@@ -165,7 +169,7 @@ public class HomewizardScheduleService(ILogger<HomewizardScheduleService> logger
             }
             catch (Exception ex)
             {
-                logger.LogError("An error occurred while executing the Homewizard schedule service: {message}", ex.Message);
+                logger.LogError("An error occurred while executing the Homewizard schedule service: {message}", ex.ToString());
             }
             finally
             {
@@ -243,6 +247,15 @@ public class HomewizardScheduleService(ILogger<HomewizardScheduleService> logger
         var currentDateTime = DateTimeOffset.UtcNow;
         
         var socList = await batteryController.GetBatteryStateOfChargeAsync();
+        
+        // log socList
+        foreach (var soc in socList)
+        {
+            logger.LogInformation("Battery '{BatteryName}' (IP: {BatteryIp}) state of charge: {StateOfCharge}%", soc.Name, soc.Ip, soc.StateOfChargePercentage);
+        }
+        
+        // TEMP log config.CurrentValue as JSON
+        logger.LogInformation("Current configuration: {Config}", System.Text.Json.JsonSerializer.Serialize(config.CurrentValue, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
         
         foreach (var soc in socList)
         {

@@ -5,7 +5,7 @@ namespace HWChargeOptimizer.Configuration;
 
 public class ConfigWriter
 {
-    private const string AppSettingsFilePath = "appsettings.json";
+    private const string AppSettingsFilePath = "/data/config/appsettings.json";
     
     public async Task WriteAsync(HWChargeOptimizerConfig hwChargeOptimizerConfig)
     {

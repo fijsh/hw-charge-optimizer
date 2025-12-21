@@ -13,13 +13,27 @@ using ZonneplanAuthentication = HWChargeOptimizer.Zonneplan.ZonneplanAuthenticat
 
 using Microsoft.Extensions.Configuration;
 
-// Set the base path to the executable's directory
-var configBuilder = new ConfigurationBuilder()
-    .SetBasePath(AppContext.BaseDirectory)
-    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+var dataConfigDir = "/data/config";
+Directory.CreateDirectory(dataConfigDir);
+
+var runtimeConfigPath = Path.Combine(dataConfigDir, "appsettings.json");
+
+// Kopieer ALLEEN bij eerste start
+if (!File.Exists(runtimeConfigPath))
+{
+    if (!File.Exists("appsettings.json"))
+        throw new FileNotFoundException(
+            "Default appsettings.json not found in application directory. Cannot create runtime configuration.");
+
+    File.Copy("appsettings.json", runtimeConfigPath);
+}
 
 var builder = Host.CreateApplicationBuilder(args);
-builder.Configuration.AddConfiguration(configBuilder.Build());
+
+builder.Configuration
+    .SetBasePath(dataConfigDir)
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
 
 // Serilog configureren
 Log.Logger = new LoggerConfiguration()
@@ -27,7 +41,7 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .Enrich.FromLogContext()
     .WriteTo.Console()
-    .WriteTo.File("logs/app.log", rollingInterval: RollingInterval.Day, encoding: Encoding.UTF8)
+    .WriteTo.File("/data/logs/hwco-.log", rollingInterval: RollingInterval.Day, encoding: Encoding.UTF8)
     .CreateLogger();
 
 // Serilog als logging provider gebruiken
@@ -97,7 +111,7 @@ static void WriteUsageInstructions()
 {
     Console.WriteLine();
     Console.WriteLine("Usage:");
-    Console.WriteLine("  HWChargeOptimizer --report   : Generate a charge schedule report.");
-    Console.WriteLine("  HWChargeOptimizer --chart    : Generate a charge schedule chart.");
-    Console.WriteLine("  HWChargeOptimizer --service  : Run as a background service.");
+    Console.WriteLine("  hwco --report   : Generate a charge schedule report.");
+    Console.WriteLine("  hwco --chart    : Generate a charge schedule chart.");
+    Console.WriteLine("  hwco --service  : Run as a background service.");
 }

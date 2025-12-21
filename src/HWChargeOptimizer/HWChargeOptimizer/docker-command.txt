@@ -1,0 +1,8 @@
+#builden en pushen
+docker build -t hwco:latest .
+
+#container maken en runnen met volume voor data persistentie
+docker run -d \
+  --name hwco \
+  -v hwco-data:/data \
+  hwco:latest
