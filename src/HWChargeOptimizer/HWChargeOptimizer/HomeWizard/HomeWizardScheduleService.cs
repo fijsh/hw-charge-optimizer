@@ -143,8 +143,6 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
                     chargingSchedule.AppendLine($"Net cost:              € {totalCost - totalValue,5:F2}");
                     chargingSchedule.AppendLine("-----------------------------------------------------------");
                     
-                    logger.LogInformation(chargingSchedule.ToString());
-                    
                     // write schedule to file
                     await File.WriteAllTextAsync(Constants.ChargingScheduleFileName, chargingSchedule.ToString(), stoppingToken);
                     
