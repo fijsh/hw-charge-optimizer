@@ -70,7 +70,9 @@ public class ChargeScheduleReporter(IOptionsMonitor<HWChargeOptimizerConfig> con
         Console.WriteLine($"Discharging efficiency:                       {dischargingEfficiency * 100} %");
         Console.WriteLine("-----------------------------------------------------------");
         
-        var lastCalculatedChargingSchedule = await File.ReadAllTextAsync(Constants.ChargingScheduleFileName);
-        Console.WriteLine(lastCalculatedChargingSchedule);
+        if (File.Exists(Constants.ChargingScheduleFileName))
+            Console.WriteLine(await File.ReadAllTextAsync(Constants.ChargingScheduleFileName));
+        else
+            Console.WriteLine("No charging schedule file found. Please run the charge optimizer first to generate a charging schedule.");
     }
 }
