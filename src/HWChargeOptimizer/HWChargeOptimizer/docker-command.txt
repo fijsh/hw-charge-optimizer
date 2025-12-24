@@ -1,8 +1,18 @@
-#builden en pushen
+# 1. Build the Docker image
 docker build -t hwco:latest .
 
-#container maken en runnen met volume voor data persistentie
+# 2. run container with persistent data volume
 docker run -d \
   --name hwco \
   -v hwco-data:/data \
   hwco:latest
+  
+# 2. alternative with port mapping for ssh access
+docker run -d \ 
+  --name hwco \
+  -v hwco-data:/data \
+  -p 0.0.0.0:2222:22 \
+   hwco:latest
+   
+# run hwco reporter
+docker exec -it hwco dotnet hwco.dll -r

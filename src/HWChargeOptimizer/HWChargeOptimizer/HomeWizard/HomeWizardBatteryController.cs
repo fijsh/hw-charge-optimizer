@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 
-namespace HWChargeOptimizer.Homewizard;
+namespace HWChargeOptimizer.HomeWizard;
 
 public interface IHomeWizardBatteryController
 {
@@ -60,7 +60,7 @@ public class HomeWizardBatteryController : IHomeWizardBatteryController
 
     public async Task<List<BatteryStateOfCharge>> GetBatteryStateOfChargeAsync()
     {
-        _logger.LogInformation("Requesting Homewizard state of charge...");
+        _logger.LogInformation("Requesting HomeWizard state of charge...");
 
         List<BatteryStateOfCharge> stateOfCharge = new(_config.CurrentValue.Homewizard.BatteryConfiguration.Batteries.Count);
         foreach (var battery in _config.CurrentValue.Homewizard.BatteryConfiguration.Batteries)
@@ -79,8 +79,6 @@ public class HomeWizardBatteryController : IHomeWizardBatteryController
                 CapacityKWh = battery.CapacityKWh,
                 StateOfChargePercentage = jsonResponse.Value<double>("state_of_charge_pct")
             });
-
-            _logger.LogInformation("Battery '{BatteryName}' state of charge: {StateOfCharge}%", battery.Name, jsonResponse.Value<double>("state_of_charge_pct"));
         }
 
         return stateOfCharge;
@@ -88,7 +86,7 @@ public class HomeWizardBatteryController : IHomeWizardBatteryController
 
     public async Task<BatteriesStatus> GetBatteriesStatusAsync()
     {
-        _logger.LogInformation("Requesting Homewizard batteries status...");
+        _logger.LogInformation("Requesting HomeWizard batteries status...");
 
         var request = new HttpRequestMessage(HttpMethod.Get, $"{new Uri(string.Concat("https://", _config.CurrentValue.Homewizard.P1.Ip, "/api/batteries"))}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.CurrentValue.Homewizard.P1.Token);
@@ -147,7 +145,7 @@ public class HomeWizardBatteryController : IHomeWizardBatteryController
 
     public async Task<int> GetLatestPowerMeasurementAsync()
     {
-        _logger.LogInformation("Requesting latest power measurement from Homewizard P1 meter...");
+        _logger.LogInformation("Requesting latest power measurement from HomeWizard P1 meter...");
 
         var request = new HttpRequestMessage(HttpMethod.Get, $"{new Uri(string.Concat("https://", _config.CurrentValue.Homewizard.P1.Ip, "/api/measurement"))}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.CurrentValue.Homewizard.P1.Token);
