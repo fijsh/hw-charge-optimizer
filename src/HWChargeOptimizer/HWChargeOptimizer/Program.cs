@@ -39,8 +39,13 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .WriteTo.File("/data/logs/hwco-.log", rollingInterval: RollingInterval.Day, encoding: Encoding.UTF8)
+    .WriteTo.Console(
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File(
+        path: "/data/logs/hwco-.log",
+        rollingInterval: RollingInterval.Day,
+        encoding: Encoding.UTF8,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
 // Serilog als logging provider gebruiken

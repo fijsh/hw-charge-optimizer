@@ -4,15 +4,12 @@ docker build -t hwco:latest .
 # 2. run container with persistent data volume
 docker run -d \
   --name hwco \
-  -v hwco-data:/data \
-  hwco:latest
-  
-# 2. alternative with port mapping for ssh access
-docker run -d \ 
-  --name hwco \
-  -v hwco-data:/data \
-  -p 0.0.0.0:2222:22 \
-   hwco:latest
+  -v /Users/fijsheijkoop/orbstack-volumes/hwco-data:/data \
+hwco:latest
+
+# 3. ensure volume directories exist and have correct permissions  
+mkdir -p "$HOME/orbstack-volumes/hwco-data/config" "$HOME/orbstack-volumes/hwco-data/logs"
+chmod -R u+rwX "$HOME/orbstack-volumes/hwco-data"
    
 # run hwco reporter
 docker exec -it hwco dotnet hwco.dll -r
