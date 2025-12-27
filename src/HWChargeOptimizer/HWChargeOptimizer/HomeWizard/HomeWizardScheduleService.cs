@@ -62,11 +62,28 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
                     logger.LogError("No current tariff found for the current hour {currentHour}. This should never happen.", currentUtcDateTime);
                     continue;
                 }
+
+                var currenUtcDateTimeLocal = TimeZoneInfo.ConvertTime(currentUtcDateTime.Date, timeZone).Date
+                    .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 
                 // lowest and highest tariff today
                 var todayTariffs = tariffs.Where(t => 
                     TimeZoneInfo.ConvertTime(t.Date, timeZone).Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) 
-                    == TimeZoneInfo.ConvertTime(currentUtcDateTime.Date, timeZone).Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).ToList();
+                    == currenUtcDateTimeLocal).ToList();
+
+                if (todayTariffs.Count == 0)
+                {
+                    logger.LogWarning("No tariffs found for today ({currentLocalDate}).", currenUtcDateTimeLocal);
+                    logger.LogWarning("Current local date: {currentLocalDate}", currenUtcDateTimeLocal);
+                    logger.LogWarning("Tariffs available:");
+                    tariffs.ForEach(t =>
+                    {
+                        logger.LogWarning("Tariff: " + TimeZoneInfo.ConvertTime(t.Date, timeZone).Date
+                            .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+                    });
+                    
+                    continue;
+                }
                 
                 var lowestTariff = todayTariffs.Min(t => t.Price);
                 var highestTariff = todayTariffs.Max(t => t.Price);
