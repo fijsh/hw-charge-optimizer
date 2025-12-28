@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Reflection;
 using System.Text;
 using Google.OrTools.LinearSolver;
 using HWChargeOptimizer.Calculations;
@@ -9,11 +8,27 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ScottPlot;
 
-
 namespace HWChargeOptimizer.HomeWizard;
 
-public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger, IOptionsMonitor<HWChargeOptimizerConfig> config, IHomeWizardBatteryController batteryController, ConfigWriter configWriter) : BackgroundService
+public class HomeWizardScheduleService : BackgroundService
 {
+    
+    private readonly ILogger<HomeWizardScheduleService> _logger;
+    private readonly IOptionsMonitor<HWChargeOptimizerConfig> _config;
+    private readonly IHomeWizardBatteryController _batteryController;
+    private readonly ConfigWriter _configWriter;
+
+    public HomeWizardScheduleService(
+        ILogger<HomeWizardScheduleService> logger,
+        IOptionsMonitor<HWChargeOptimizerConfig> config,
+        IHomeWizardBatteryController batteryController,
+        ConfigWriter configWriter)
+    {
+        _logger = logger;
+        _config = config;
+        _batteryController = batteryController;
+        _configWriter = configWriter;
+    }
     
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -26,27 +41,36 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
                 // retrieve the combined battery status from the battery controller and update the config
                 await RetrieveAndStoreBatteriesStatusInConfigAsync();
 
-                var currentHousePowerUsage = await batteryController.GetLatestPowerMeasurementAsync();
+                var currentHousePowerUsage = await _batteryController.GetLatestPowerMeasurementAsync();
                 var socList = await RetrieveAndStoreBatteriesSoCAsync();
 
                 // Cache config values
-                var cfg = config.CurrentValue;
+                var cfg = _config.CurrentValue;
                 var batteryCfg = cfg.Homewizard.BatteryConfiguration;
                 var p1 = cfg.Homewizard.P1;
 
-                var currentUtcDateTime = DateTimeOffset.UtcNow;
-                currentUtcDateTime = new DateTimeOffset(currentUtcDateTime.Year, currentUtcDateTime.Month, currentUtcDateTime.Day, currentUtcDateTime.Hour, 0, 0, currentUtcDateTime.Offset);
+                // Tariffs are hourly-based, so compare on hour boundaries only.
+                var localNow = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, timeZone);
+                var currentLocalDateTimeHour = TruncateToHour(localNow);
 
-                // Filter tariffs, only retain those from current hour onwards
-                var tariffs = cfg.Zonneplan.Tariffs?.Where(t => t.Date >= currentUtcDateTime).ToList() ?? [];
+                _logger.LogDebug("Current local date time hour: {currentLocalDateTimeHour}", currentLocalDateTimeHour);
+
+                // Filter tariffs, only retain those from current hour onwards (hour comparisons, not .Date)
+                var tariffs = (cfg.Zonneplan.Tariffs ?? [])
+                    .Where(t => TruncateToHour(TimeZoneInfo.ConvertTime(t.Date, timeZone)) >= currentLocalDateTimeHour)
+                    .OrderBy(t => t.Date)
+                    .ToList();
+
                 if (tariffs.Count == 0)
                 {
-                    logger.LogError("No current tariffs available in the Zonneplan tariff list.");
+                    _logger.LogError("No present or future tariffs available in the Zonneplan tariff list. This should never happen.");
                     continue;
                 }
-
+                
                 var combinedBatteryCapacity = batteryCfg.Batteries.Sum(s => s.CapacityKWh);
-                var currentStateOfCharge = socList.Select((soc, index) => soc.StateOfChargePercentage * batteryCfg.Batteries[index].CapacityKWh / 100.0).Sum();
+                var currentStateOfCharge = socList
+                    .Select((soc, index) => soc.StateOfChargePercentage * batteryCfg.Batteries[index].CapacityKWh / 100.0)
+                    .Sum();
 
                 var maxChargingRate = batteryCfg.MaxChargeRateKWh;
                 var maxDischargingRate = batteryCfg.MaxDischargeRateKWh;
@@ -56,51 +80,27 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
 
                 var currentBatteryMode = p1.BatteryMode;
 
-                var currentTariff = tariffs.SingleOrDefault(s => s.Date == currentUtcDateTime);
-                if (currentTariff == null)
-                {
-                    logger.LogError("No current tariff found for the current hour {currentHour}. This should never happen.", currentUtcDateTime);
-                    continue;
-                }
+                // Correct way: pick the tariff for the current hour (or if missing, the next future one).
+                var currentTariff = tariffs.FirstOrDefault(t =>
+                        TruncateToHour(TimeZoneInfo.ConvertTime(t.Date, timeZone)) >= currentLocalDateTimeHour)
+                    ?? tariffs.First();
 
-                var currenUtcDateTimeLocal = TimeZoneInfo.ConvertTime(currentUtcDateTime.Date, timeZone).Date
-                    .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                
-                // lowest and highest tariff today
-                var todayTariffs = tariffs.Where(t => 
-                    TimeZoneInfo.ConvertTime(t.Date, timeZone).Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) 
-                    == currenUtcDateTimeLocal).ToList();
+                var lowestTariff = tariffs.Min(t => t.Price);
+                var highestTariff = tariffs.Max(t => t.Price);
 
-                if (todayTariffs.Count == 0)
-                {
-                    logger.LogWarning("No tariffs found for today ({currentLocalDate}).", currenUtcDateTimeLocal);
-                    logger.LogWarning("Current local date: {currentLocalDate}", currenUtcDateTimeLocal);
-                    logger.LogWarning("Tariffs available:");
-                    tariffs.ForEach(t =>
-                    {
-                        logger.LogWarning("Tariff: " + TimeZoneInfo.ConvertTime(t.Date, timeZone).Date
-                            .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
-                    });
-                    
-                    continue;
-                }
-                
-                var lowestTariff = todayTariffs.Min(t => t.Price);
-                var highestTariff = todayTariffs.Max(t => t.Price);
+                _logger.LogInformation("-----------------------------------------------------------");
+                _logger.LogInformation("Current battery mode:                         {currentBatteryMode}", currentBatteryMode);
+                _logger.LogInformation("Total battery capacity:                       {combinedBatteryCapacity} kWh", combinedBatteryCapacity);
+                _logger.LogInformation("Current state of charge (combined):           {currentStateOfCharge:F4} kWh", currentStateOfCharge);
+                _logger.LogInformation("Current house power consumption / production: {currentPowerUsage} Watt", currentHousePowerUsage);
+                _logger.LogInformation("Current tariff:                               {currentTariff:F4} / kWh", currentTariff.Price);
+                _logger.LogInformation("Lowest available tariff:                      {lowestTariff:F4} / kWh", lowestTariff);
+                _logger.LogInformation("Highest available tariff:                     {highestTariff:F4} / kWh", highestTariff);
+                _logger.LogInformation("Charging efficiency:                          {chargingEfficiency} %", chargingEfficiency * 100);
+                _logger.LogInformation("Discharging efficiency:                       {dischargingEfficiency} %", dischargingEfficiency * 100);
+                _logger.LogInformation("-----------------------------------------------------------");
 
-                logger.LogInformation("-----------------------------------------------------------");
-                logger.LogInformation("Current battery mode:                         {currentBatteryMode}", currentBatteryMode);
-                logger.LogInformation("Total battery capacity:                       {combinedBatteryCapacity} kWh", combinedBatteryCapacity);
-                logger.LogInformation("Current state of charge (combined):           {currentStateOfCharge:F4} kWh", currentStateOfCharge);
-                logger.LogInformation("Current house power consumption / production: {currentPowerUsage} Watt", currentHousePowerUsage);
-                logger.LogInformation("Current tariff:                               {currentTariff:F4} / kWh", currentTariff.Price);
-                logger.LogInformation("Lowest tariff today:                          {lowestTariff:F4} / kWh", lowestTariff);
-                logger.LogInformation("Highest tariff today:                         {highestTariff:F4} / kWh", highestTariff);
-                logger.LogInformation("Charging efficiency:                          {chargingEfficiency} %", chargingEfficiency * 100);
-                logger.LogInformation("Discharging efficiency:                       {dischargingEfficiency} %", dischargingEfficiency * 100);
-                logger.LogInformation("-----------------------------------------------------------");
-
-                logger.LogInformation("Starting calculation of optimal charging schedule...");
+                _logger.LogInformation("Starting calculation of optimal charging schedule...");
 
                 var scheduleVariables = new ScheduleVariables
                 {
@@ -128,10 +128,10 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
                 {
                     var startCharging = false;
                     var startDischarging = false;
-                    
+
                     chargingSchedule.AppendLine("Local time  | C | D |  CQ   |  DQ   |  SoC | Tariff");
                     chargingSchedule.AppendLine("-----------------------------------------------------------");
-                    
+
                     foreach (var tariff in tariffs)
                     {
                         var charge = Math.Round(scheduleVariables.ChargeAmount[tariff.Date].SolutionValue(), 2);
@@ -144,9 +144,10 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
                         chargingSchedule.AppendLine(
                             $"{TimeZoneInfo.ConvertTime(tariff.Date, timeZone):dd/MM HH:mm} | {chargingStatus} | {dischargingStatus} | {charge,5:F2} | {discharge,5:F2} | {soc,3:F2} | {tariff.Price:F5}");
 
-                        if (tariff.Date == currentUtcDateTime && chargingStatus == "Y")
+                        var tariffLocalHour = TruncateToHour(TimeZoneInfo.ConvertTime(tariff.Date, timeZone));
+                        if (tariffLocalHour == currentLocalDateTimeHour && chargingStatus == "Y")
                             startCharging = true;
-                        if (tariff.Date == currentUtcDateTime && dischargingStatus == "Y")
+                        if (tariffLocalHour == currentLocalDateTimeHour && dischargingStatus == "Y")
                             startDischarging = true;
                     }
 
@@ -165,17 +166,17 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
                     
                     if (startCharging)
                     {
-                        logger.LogInformation("Setting battery to full charging mode.");
+                        _logger.LogInformation("Setting battery to full charging mode.");
                         await SetBatteryModeAsync(BatteryMode.FullCharge);
                     }
                     else if (startDischarging)
                     {
-                        logger.LogInformation("Setting battery to discharge only mode.");
+                        _logger.LogInformation("Setting battery to discharge only mode.");
                         await SetBatteryModeAsync(BatteryMode.ZeroDischargeOnly);
                     }
                     else
                     {
-                        logger.LogInformation("Setting battery to standby mode.");
+                        _logger.LogInformation("Setting battery to standby mode.");
                         await SetBatteryModeAsync(BatteryMode.Standby);
                     }
                     
@@ -184,37 +185,40 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
                 }
                 else
                 {
-                    logger.LogWarning("No solution found. Setting battery to zero mode.");
+                    _logger.LogWarning("No solution found. Setting battery to zero mode.");
                     await SetBatteryModeAsync(BatteryMode.Zero); // set to zero mode as a fallback
                 }
             }
             catch (Exception ex)
             {
-                logger.LogError("An error occurred while executing the HomeWizard schedule service: {message}", ex.ToString());
+                _logger.LogError("An error occurred while executing the HomeWizard schedule service: {message}", ex.ToString());
             }
             finally
             {
                 if (stoppingToken.IsCancellationRequested)
                 {
-                    logger.LogInformation("HomeWizard schedule service is stopping, because cancellation was requested.");
+                    _logger.LogInformation("HomeWizard schedule service is stopping, because cancellation was requested.");
                 }
                 else
                 {
                     // wait for the configured refresh interval or until the next full hour, whichever is shorter
-                    var refreshIntervalSeconds = config.CurrentValue.Homewizard.RefreshIntervalSeconds;
+                    var refreshIntervalSeconds = _config.CurrentValue.Homewizard.RefreshIntervalSeconds;
                     var now = DateTime.Now;
                     var nextHour = now.AddHours(1).Date.AddHours(now.Hour + 1);
                     var secondsUntilNextHour = (int)(nextHour - now).TotalSeconds;
                     var waitSeconds = Math.Min(refreshIntervalSeconds, secondsUntilNextHour);
 
-                    logger.LogInformation("The HomeWizard schedule service will wait for {refreshInterval} seconds before the next execution.",
+                    _logger.LogInformation("The HomeWizard schedule service will wait for {refreshInterval} seconds before the next execution.",
                         waitSeconds);
 
-                    await Task.Delay(waitSeconds * 1000, stoppingToken);
+                    await Task.Delay(TimeSpan.FromSeconds(waitSeconds), stoppingToken);
                 }
             }
         }
     }
+
+    private static DateTimeOffset TruncateToHour(DateTimeOffset value) =>
+        new(value.Year, value.Month, value.Day, value.Hour, 0, 0, value.Offset);
 
     /// <summary>
     /// Sets the battery mode to the specified mode and updates the configuration.
@@ -222,12 +226,12 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
     /// <param name="requestedBatteryMode">The battery mode to request</param>
     private async Task SetBatteryModeAsync(string requestedBatteryMode)
     {
-        if (config.CurrentValue.Homewizard.P1.BatteryMode != requestedBatteryMode)
+        if (_config.CurrentValue.Homewizard.P1.BatteryMode != requestedBatteryMode)
         {
-            await batteryController.SetBatteryModeAsync(requestedBatteryMode);
-            config.CurrentValue.Homewizard.P1.BatteryMode = requestedBatteryMode;
-            config.CurrentValue.Homewizard.P1.LastUpdated = DateTimeOffset.UtcNow;
-            await configWriter.WriteAsync(config.CurrentValue);
+            await _batteryController.SetBatteryModeAsync(requestedBatteryMode);
+            _config.CurrentValue.Homewizard.P1.BatteryMode = requestedBatteryMode;
+            _config.CurrentValue.Homewizard.P1.LastUpdated = DateTimeOffset.UtcNow;
+            await _configWriter.WriteAsync(_config.CurrentValue);
         }
     }
 
@@ -240,23 +244,23 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
         var currentDateTime = DateTimeOffset.UtcNow;
 
         // retrieve the current battery status from the battery controller
-        var batteryResponse = await batteryController.GetBatteriesStatusAsync();
+        var batteryResponse = await _batteryController.GetBatteriesStatusAsync();
 
-        logger.LogInformation("Battery: Mode={mode}, P={powerW}, MaxIn={maxConsumptionW}, MaxOut={maxProductionW}, Target={targetPowerW}",
+        _logger.LogInformation("Battery: Mode={mode}, P={powerW}, MaxIn={maxConsumptionW}, MaxOut={maxProductionW}, Target={targetPowerW}",
             batteryResponse.Mode,
             batteryResponse.PowerW,
             batteryResponse.MaxConsumptionW,
             batteryResponse.MaxProductionW,
             batteryResponse.TargetPowerW);
 
-        config.CurrentValue.Homewizard.P1.BatteryMode = batteryResponse.Mode;
-        config.CurrentValue.Homewizard.P1.LastUpdated = currentDateTime;
-        config.CurrentValue.Homewizard.P1.PowerW = batteryResponse.PowerW;
-        config.CurrentValue.Homewizard.P1.MaxConsumptionW = batteryResponse.MaxConsumptionW;
-        config.CurrentValue.Homewizard.P1.MaxProductionW = batteryResponse.MaxProductionW;
-        config.CurrentValue.Homewizard.P1.TargetPowerW = batteryResponse.TargetPowerW;
+        _config.CurrentValue.Homewizard.P1.BatteryMode = batteryResponse.Mode;
+        _config.CurrentValue.Homewizard.P1.LastUpdated = currentDateTime;
+        _config.CurrentValue.Homewizard.P1.PowerW = batteryResponse.PowerW;
+        _config.CurrentValue.Homewizard.P1.MaxConsumptionW = batteryResponse.MaxConsumptionW;
+        _config.CurrentValue.Homewizard.P1.MaxProductionW = batteryResponse.MaxProductionW;
+        _config.CurrentValue.Homewizard.P1.TargetPowerW = batteryResponse.TargetPowerW;
 
-        await configWriter.WriteAsync(config.CurrentValue);
+        await _configWriter.WriteAsync(_config.CurrentValue);
     }
     
     /// <summary>
@@ -266,22 +270,29 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
     private async Task<List<BatteryStateOfCharge>> RetrieveAndStoreBatteriesSoCAsync()
     {
         var currentDateTime = DateTimeOffset.UtcNow;
-        
-        var socList = await batteryController.GetBatteryStateOfChargeAsync();
-        
+
+        var socList = await _batteryController.GetBatteryStateOfChargeAsync();
+
         // log socList
         foreach (var soc in socList)
         {
-            logger.LogInformation("Battery '{BatteryName}' (IP: {BatteryIp}) state of charge: {StateOfCharge}%", soc.Name, soc.Ip, soc.StateOfChargePercentage);
+            _logger.LogInformation("Battery '{BatteryName}' (IP: {BatteryIp}) state of charge: {StateOfCharge}%", soc.Name, soc.Ip, soc.StateOfChargePercentage);
         }
-        
+
         foreach (var soc in socList)
         {
-            config.CurrentValue.Homewizard.BatteryConfiguration.Batteries.Single(b => b.Ip == soc.Ip).StateOfChargePercentage = soc.StateOfChargePercentage;
-            config.CurrentValue.Homewizard.BatteryConfiguration.Batteries.Single(b => b.Ip == soc.Ip).LastUpdated = currentDateTime;
+            var battery = _config.CurrentValue.Homewizard.BatteryConfiguration.Batteries.SingleOrDefault(b => b.Ip == soc.Ip);
+            if (battery == null)
+            {
+                _logger.LogWarning("Battery with IP {ip} not found in config. Skipping SoC update.", soc.Ip);
+                continue;
+            }
+
+            battery.StateOfChargePercentage = soc.StateOfChargePercentage;
+            battery.LastUpdated = currentDateTime;
         }
-        
-        await configWriter.WriteAsync(config.CurrentValue);
+
+        await _configWriter.WriteAsync(_config.CurrentValue);
 
         return socList;
     }
@@ -292,45 +303,46 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
         Dictionary<DateTimeOffset, Variable> stateOfCharge)
     {
         var timeZone = TimeZoneInfo.FindSystemTimeZoneById(Constants.SystemTimeZone);
-        
-        // convert tariff times to local time zone for plotting
-        foreach (var tariff in tariffs)
-        {
-            tariff.Date = TimeZoneInfo.ConvertTime(tariff.Date, timeZone);
-        }
-        
+
+        // Do not mutate `tariffs` (they are used as dictionary keys elsewhere). Create a local-time copy for plotting.
+        var plotTariffs = tariffs
+            .Select(t => new Tariff { Date = TimeZoneInfo.ConvertTime(t.Date, timeZone), Price = t.Price })
+            .ToList();
+
         // Create arrays for plotting
-        var times = new double[tariffs.Count];
-        var socValues = new double[tariffs.Count];
-        var chargeValues = new double[tariffs.Count];
-        var dischargeValues = new double[tariffs.Count];
-        var tariffValues = new double[tariffs.Count];
-        var timeLabels = new string[tariffs.Count];
+        var times = new double[plotTariffs.Count];
+        var socValues = new double[plotTariffs.Count];
+        var chargeValues = new double[plotTariffs.Count];
+        var dischargeValues = new double[plotTariffs.Count];
+        var tariffValues = new double[plotTariffs.Count];
+        var timeLabels = new string[plotTariffs.Count];
 
         // Fill arrays with data
-        for (var i = 0; i < tariffs.Count; i++)
+        for (var i = 0; i < plotTariffs.Count; i++)
         {
-            var tariff = tariffs[i];
             times[i] = i;
-            socValues[i] = stateOfCharge[tariff.Date].SolutionValue();
-            chargeValues[i] = chargeAmount[tariff.Date].SolutionValue();
-            dischargeValues[i] = dischargeAmount[tariff.Date].SolutionValue();
-            tariffValues[i] = tariff.Price;
-            timeLabels[i] = tariff.Date.ToString("HH", CultureInfo.InvariantCulture);
+
+            // Dictionaries are keyed by the original tariff DateTimeOffset values.
+            var key = tariffs[i].Date;
+
+            socValues[i] = stateOfCharge.TryGetValue(key, out var soc) ? soc.SolutionValue() : 0.0;
+            chargeValues[i] = chargeAmount.TryGetValue(key, out var ch) ? ch.SolutionValue() : 0.0;
+            dischargeValues[i] = dischargeAmount.TryGetValue(key, out var dis) ? dis.SolutionValue() : 0.0;
+
+            tariffValues[i] = plotTariffs[i].Price;
+            timeLabels[i] = plotTariffs[i].Date.ToString("HH", CultureInfo.InvariantCulture);
         }
 
         // Create plot
         var plot = new Plot();
 
-        var fontLocation = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? throw new InvalidOperationException("Cannot find executing assembly location."), @"Fonts/Roboto-VariableFont.ttf");
+        var fontLocation = Path.Combine(AppContext.BaseDirectory, "Fonts", "Roboto-VariableFont.ttf");
         if (!File.Exists(fontLocation))
             throw new InvalidOperationException($"Font file not found at {fontLocation}. Cannot create chart.");
-        
+
         // Add a font file to use its typeface for fonts with a given name
-        Fonts.AddFontFile(
-            name: "Roboto",
-            path: Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? throw new InvalidOperationException("Cannot find fonts."), @"Fonts/Roboto-VariableFont.ttf"));
-        
+        Fonts.AddFontFile(name: "Roboto", path: fontLocation);
+
         plot.Font.Set("Roboto");
         
         // change figure colors for dark mode
@@ -342,7 +354,7 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
         plot.Grid.MajorLineColor = Color.FromHex("#404040");
 
         // change legend colors for dark mode
-        plot.Legend.BackgroundColor = Color.FromHex("#404040").WithAlpha(0.7);;
+        plot.Legend.BackgroundColor = Color.FromHex("#404040").WithAlpha(0.7);
         plot.Legend.FontColor = Color.FromHex("#d7d7d7");
         plot.Legend.OutlineColor = Color.FromHex("#d7d7d7");
 
@@ -431,3 +443,5 @@ public class HomeWizardScheduleService(ILogger<HomeWizardScheduleService> logger
         plot.SavePng(Constants.PlotFileName, 1200, 600);
     }
 }
+
+
