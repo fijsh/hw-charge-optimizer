@@ -10,6 +10,6 @@ public static class Constants
     // Solver type
     public const string SolverType = "GLOP";
 
-    public const string ChargingScheduleFileName = "/data/logs/charging-schedule.log";
+    public const string ChargingScheduleFileName = "/data/logs/charging-schedule.txt";
     public const string PlotFileName = "/data/logs/charging-schedule.png";
 }

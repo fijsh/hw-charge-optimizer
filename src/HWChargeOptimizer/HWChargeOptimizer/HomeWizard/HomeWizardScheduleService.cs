@@ -12,7 +12,6 @@ namespace HWChargeOptimizer.HomeWizard;
 
 public class HomeWizardScheduleService : BackgroundService
 {
-    
     private readonly ILogger<HomeWizardScheduleService> _logger;
     private readonly IOptionsMonitor<HWChargeOptimizerConfig> _config;
     private readonly IHomeWizardBatteryController _batteryController;

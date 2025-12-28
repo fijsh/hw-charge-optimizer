@@ -42,7 +42,7 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(
         outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
     .WriteTo.File(
-        path: "/data/logs/hwco-.log",
+        path: "/data/logs/hwco-.txt",
         rollingInterval: RollingInterval.Day,
         encoding: Encoding.UTF8,
         outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
