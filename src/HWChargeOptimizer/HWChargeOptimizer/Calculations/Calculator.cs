@@ -27,10 +27,10 @@ public static class OptimizeSchedule
             scheduleVariables.IsCharging[tariff.Date] = solver.MakeIntVar(0, 1, $"isCharging_{tariff.Date}");
 
             // Always charge at maximum rate during negative tariffs
-            if (tariff.Price < 0)
-            {
-                solver.Add(scheduleVariables.ChargeAmount[tariff.Date] == scheduleVariables.MaxChargingRate);
-            }
+            // if (tariff.Price < 0)
+            // {
+            //     solver.Add(scheduleVariables.ChargeAmount[tariff.Date] == scheduleVariables.MaxChargingRate);
+            // }
 
             // Prevent charging and discharging at the same time
             solver.Add(scheduleVariables.ChargeAmount[tariff.Date] <= scheduleVariables.MaxChargingRate * scheduleVariables.IsCharging[tariff.Date]);
