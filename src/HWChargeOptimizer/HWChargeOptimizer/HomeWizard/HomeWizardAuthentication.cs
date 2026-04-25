@@ -4,14 +4,14 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 
-namespace HWChargeOptimizer.Homewizard;
+namespace HWChargeOptimizer.HomeWizard;
 
-public interface IHomewizardAuthentication
+public interface IHomeWizardAuthentication
 {
     Task<string?> GetP1TokenAsync(string username);
 }
 
-public class HomewizardAuthentication(ILogger<HomewizardAuthentication> logger, IHttpClientFactory httpClientFactory, IOptionsMonitor<HWChargeOptimizerConfig> config) : IHomewizardAuthentication
+public class HomeWizardAuthentication(ILogger<HomeWizardAuthentication> logger, IHttpClientFactory httpClientFactory, IOptionsMonitor<HWChargeOptimizerConfig> config) : IHomeWizardAuthentication
 {
     public async Task<string?> GetP1TokenAsync(string username)
     {

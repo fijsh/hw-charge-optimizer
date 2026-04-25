@@ -47,11 +47,20 @@ public class ZonneplanScheduleService(
 
                 logger.LogInformation("{count} tariffs retrieved.", tariffs.Count);
                 tariffs.ForEach(t => logger.LogInformation("Tariff {from}: {price} ct.", t.From, t.Price / 100000));
-
-                config.CurrentValue.Zonneplan.Tariffs?.Clear();
-
-                var newConfigTariffs = tariffs.Select(tariff => new HWChargeOptimizer.Configuration.Tariff { Date = tariff.From, Price = tariff.Price / 100000 }).ToList();
-                config.CurrentValue.Zonneplan.Tariffs = newConfigTariffs;
+                
+                if (config.CurrentValue.Zonneplan.Tariffs == null)
+                {
+                    config.CurrentValue.Zonneplan.Tariffs = tariffs
+                        .Select(tariff => new HWChargeOptimizer.Configuration.Tariff { Date = tariff.From, Price = tariff.Price / 100000 })
+                        .ToList();
+                }
+                else
+                {
+                    config.CurrentValue.Zonneplan.Tariffs.Clear();
+                    config.CurrentValue.Zonneplan.Tariffs.AddRange(
+                        tariffs.Select(tariff => new HWChargeOptimizer.Configuration.Tariff { Date = tariff.From, Price = tariff.Price / 100000 })
+                    );
+                }
 
                 // Update the last updated time after successfully retrieving tariffs
                 config.CurrentValue.Zonneplan.Authentication.LastUpdated = currentDateTime;

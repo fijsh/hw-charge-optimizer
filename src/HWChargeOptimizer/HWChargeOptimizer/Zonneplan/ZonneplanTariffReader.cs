@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Headers;
+﻿using System.Globalization;
+using System.Net.Http.Headers;
 using HWChargeOptimizer.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -53,11 +54,9 @@ public class ZonneplanTariffReader : IZonneplanTariffReader
         var summaryObj = JObject.Parse(summaryJson);
 
         var tariffsList = new List<Tariff>();
-        var tariffsArray = summaryObj["data"]?["price_per_hour"] as JArray;
-
-        if (tariffsArray != null)
+        if (summaryObj["data"]?["price_per_hour"] is JArray tariffsArray)
         {
-            tariffsList.AddRange(tariffsArray.Select(item => new Tariff { From = DateTimeOffset.Parse(item["datetime"]!.ToString()), Price = item["electricity_price"]?.Value<double>() ?? 0 }));
+            tariffsList.AddRange(tariffsArray.Select(item => new Tariff { From = DateTimeOffset.Parse(item["datetime"]!.ToString(), CultureInfo.InvariantCulture), Price = item["electricity_price"]?.Value<double>() ?? 0 }));
         }
         else
         {

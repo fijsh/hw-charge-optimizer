@@ -5,29 +5,47 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Events;
 using HWChargeOptimizer.Configuration;
-using HWChargeOptimizer.Homewizard;
+using HWChargeOptimizer.HomeWizard;
 using HWChargeOptimizer.Reporter;
 using HWChargeOptimizer.Zonneplan;
-using HomewizardAuthentication = HWChargeOptimizer.Homewizard.HomewizardAuthentication;
 using ZonneplanAuthentication = HWChargeOptimizer.Zonneplan.ZonneplanAuthentication;
 
 using Microsoft.Extensions.Configuration;
 
-// Set the base path to the executable's directory
-var configBuilder = new ConfigurationBuilder()
-    .SetBasePath(AppContext.BaseDirectory)
-    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+var dataConfigDir = "/data/config";
+Directory.CreateDirectory(dataConfigDir);
+
+var runtimeConfigPath = Path.Combine(dataConfigDir, "appsettings.json");
+
+// Kopieer ALLEEN bij eerste start
+if (!File.Exists(runtimeConfigPath))
+{
+    if (!File.Exists("appsettings.json"))
+        throw new FileNotFoundException(
+            "Default appsettings.json not found in application directory. Cannot create runtime configuration.");
+
+    File.Copy("appsettings.json", runtimeConfigPath);
+}
 
 var builder = Host.CreateApplicationBuilder(args);
-builder.Configuration.AddConfiguration(configBuilder.Build());
+
+builder.Configuration
+    .SetBasePath(dataConfigDir)
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
 
 // Serilog configureren
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .WriteTo.File("logs/app.log", rollingInterval: RollingInterval.Day, encoding: Encoding.UTF8)
+    .WriteTo.Console(
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File(
+        path: "/data/logs/hwco-.txt",
+        rollingInterval: RollingInterval.Day,
+        encoding: Encoding.UTF8,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
 // Serilog als logging provider gebruiken
@@ -42,7 +60,7 @@ builder.Services.AddHttpClient("NoSslValidation")
 
 builder.Services.AddHttpClient();
 builder.Services.AddTransient<IZonneplanAuthentication, ZonneplanAuthentication>();
-builder.Services.AddSingleton<IHomewizardAuthentication, HomewizardAuthentication>();
+builder.Services.AddSingleton<IHomeWizardAuthentication, HomeWizardAuthentication>();
 builder.Services.AddSingleton<IHomeWizardBatteryController, HomeWizardBatteryController>();
 builder.Services.AddTransient<IZonneplanTariffReader, ZonneplanTariffReader>();
 builder.Services.AddTransient<ChargeScheduleReporter>();
@@ -62,17 +80,10 @@ if (args.Length > 0)
             await reporter.RunAsync();
             break;
         
-        case "--chart":
-        case "-c":
-            var reportChartHost = builder.Build();
-            var reporterChart = reportChartHost.Services.GetRequiredService<ChargeScheduleReporter>();
-            await reporterChart.RunAsync(true);
-            break;
-        
         case "--service":
         case "-s":
             builder.Services.AddHostedService<ZonneplanScheduleService>();
-            builder.Services.AddHostedService<HomewizardScheduleService>();
+            builder.Services.AddHostedService<HomeWizardScheduleService>();
     
             var serviceHost = builder.Build();
 
@@ -97,7 +108,7 @@ static void WriteUsageInstructions()
 {
     Console.WriteLine();
     Console.WriteLine("Usage:");
-    Console.WriteLine("  HWChargeOptimizer --report   : Generate a charge schedule report.");
-    Console.WriteLine("  HWChargeOptimizer --chart    : Generate a charge schedule chart.");
-    Console.WriteLine("  HWChargeOptimizer --service  : Run as a background service.");
+    Console.WriteLine("  hwco --report   : Generate a charge schedule report.");
+    Console.WriteLine("  hwco --chart    : Generate a charge schedule chart.");
+    Console.WriteLine("  hwco --service  : Run as a background service.");
 }
